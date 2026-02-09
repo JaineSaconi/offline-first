@@ -3388,6 +3388,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"await-lock@npm:^2.2.2":
+  version: 2.2.2
+  resolution: "await-lock@npm:2.2.2"
+  checksum: feb11f36768a8545879ed2d214b46aae484e6564ffa466af9212d5782897203770795cae01f813de04a46f66c0b8ee6bc690a0c435b04e00cad5a18ef0842e25
+  languageName: node
+  linkType: hard
+
 "babel-jest@npm:^29.7.0":
   version: 29.7.0
   resolution: "babel-jest@npm:29.7.0"
@@ -5085,6 +5092,19 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 8d3a352766224be728af798354030b4f71c405ad751a48beaa434857036a21430f832267ff332b11476028a574e17bc4e0b7acf0a7344e69210edc7e2b51e304
+  languageName: node
+  linkType: hard
+
+"expo-sqlite@npm:~16.0.10":
+  version: 16.0.10
+  resolution: "expo-sqlite@npm:16.0.10"
+  dependencies:
+    await-lock: ^2.2.2
+  peerDependencies:
+    expo: "*"
+    react: "*"
+    react-native: "*"
+  checksum: f471e04ae10474b3d29e30a3f9106024bdd9aa9da183a20f1fcbc9776e46f6b7332f3e653608ce5e1b1ced08bfcd7fc0c29416676b32fe49029a958d897feb76
   languageName: node
   linkType: hard
 
@@ -7461,6 +7481,7 @@ __metadata:
     expo-linking: ~8.0.11
     expo-router: ~6.0.22
     expo-splash-screen: ~31.0.13
+    expo-sqlite: ~16.0.10
     expo-status-bar: ~3.0.9
     expo-symbols: ~1.0.8
     expo-system-ui: ~6.0.9
@@ -7470,7 +7491,7 @@ __metadata:
     react-native: 0.81.5
     react-native-gesture-handler: ~2.28.0
     react-native-reanimated: ~4.1.1
-    react-native-safe-area-context: ~5.6.0
+    react-native-safe-area-context: ^5.6.2
     react-native-screens: ~4.16.0
     react-native-web: ~0.21.0
     react-native-worklets: 0.5.1
@@ -8022,7 +8043,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-safe-area-context@npm:~5.6.0":
+"react-native-safe-area-context@npm:^5.6.2":
   version: 5.6.2
   resolution: "react-native-safe-area-context@npm:5.6.2"
   peerDependencies:
