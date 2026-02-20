@@ -6,6 +6,7 @@ import "react-native-reanimated";
 
 import { migrateDatabase } from "@/lib/db";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { migrateOutboxDatabase } from "@/lib/outbox_db";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -13,6 +14,9 @@ export default function RootLayout() {
   useEffect(() => {
     migrateDatabase().catch((error) => {
       console.error("Failed to migrate database", error);
+    });
+    migrateOutboxDatabase().catch((error) => {
+      console.error("Failed to migrate outbox database", error);
     });
   }, []);
 

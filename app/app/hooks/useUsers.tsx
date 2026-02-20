@@ -1,6 +1,7 @@
 ﻿import { useEffect, useState } from "react";
 
 import { getDatabase } from "@/lib/db";
+import { getOutboxDatabase } from "@/lib/outbox_db";
 
 import { getInfos } from "../services/users";
 
@@ -45,9 +46,23 @@ export function useUsers() {
     setLoading(true);
     try {
       const db = await getDatabase();
-      await db.runAsync(
+      const insertResult = await db.runAsync(
         "INSERT INTO todos (title, created_at) VALUES (?, ?);",
         [trimmed, Date.now()],
+      );
+      const userId = Number(insertResult.lastInsertRowId);
+
+      const outboxDb = await getOutboxDatabase();
+      await outboxDb.runAsync(
+        "INSERT INTO outbox (entity, entityId, type, payload, createdAt, status) VALUES (?, ?, ?, ?, ?, ?);",
+        [
+          "user",
+          String(userId),
+          "UPSERT",
+          JSON.stringify({ id: userId, title: trimmed }),
+          Date.now(),
+          "PENDING",
+        ],
       );
       setTitle("");
       await loadTodos();

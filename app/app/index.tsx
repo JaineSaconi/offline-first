@@ -1,4 +1,3 @@
-﻿import { Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
@@ -6,6 +5,8 @@ import { ThemedView } from "@/components/themed-view";
 import styles from "@/styles/sqlite";
 
 import { useUsers } from "./hooks/useUsers";
+import { HeaderInsert } from "./components/HeaderInsert";
+import { ItemListHome } from "./components/ItemListHome/ItemListHome";
 import { useMemo } from "react";
 
 export default function SQLiteScreen() {
@@ -19,40 +20,13 @@ export default function SQLiteScreen() {
       <ThemedText type="title">SQLite Playground</ThemedText>
       <ThemedText type="subtitle">Insert, list, and delete records.</ThemedText>
 
-      <ThemedView style={styles.row}>
-        <TextInput
-          value={title}
-          onChangeText={setTitle}
-          placeholder="New todo"
-          autoCapitalize="sentences"
-          style={styles.input}
-        />
-        <Pressable
-          disabled={loading}
-          onPress={addTodo}
-          style={({ pressed }) => [
-            styles.button,
-            pressed && styles.buttonPressed,
-            loading && styles.buttonDisabled,
-          ]}
-        >
-          <ThemedText type="defaultSemiBold">Add</ThemedText>
-        </Pressable>
-      </ThemedView>
-
-      <ThemedView style={styles.actionsRow}>
-        <Pressable
-          disabled={loading}
-          onPress={refresh}
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            pressed && styles.buttonPressed,
-            loading && styles.buttonDisabled,
-          ]}
-        >
-          <ThemedText type="defaultSemiBold">Refresh</ThemedText>
-        </Pressable>
-      </ThemedView>
+      <HeaderInsert
+        title={title}
+        loading={loading}
+        onChangeTitle={setTitle}
+        onAddTodo={addTodo}
+        onRefresh={refresh}
+      />
 
       {error ? (
         <ThemedText style={styles.errorText}>{error}</ThemedText>
@@ -63,27 +37,22 @@ export default function SQLiteScreen() {
       <ThemedView style={styles.list}>
         <ThemedText type="subtitle">Active</ThemedText>
         {activeTodos.map((todo) => (
-          <ThemedView key={todo.id} style={styles.itemRow}>
-            <ThemedText>{todo.title}</ThemedText>
-            <Pressable
-              disabled={loading}
-              onPress={() => deleteTodo(todo.id)}
-              style={({ pressed }) => [
-                styles.dangerButton,
-                pressed && styles.buttonPressed,
-                loading && styles.buttonDisabled,
-              ]}
-            >
-              <ThemedText type="defaultSemiBold">Delete</ThemedText>
-            </Pressable>
-          </ThemedView>
+          <ItemListHome
+            key={todo.id}
+            title={todo.title}
+            loading={loading}
+            onPress={() => deleteTodo(todo.id)}
+          />
         ))}
 
         <ThemedText type="subtitle">Deleted</ThemedText>
         {deletedTodos.map((todo) => (
-          <ThemedView key={todo.id} style={styles.itemRow}>
-            <ThemedText>{todo.title}</ThemedText>
-          </ThemedView>
+          <ItemListHome
+            key={todo.id}
+            title={todo.title}
+            loading={loading}
+          />
+          
         ))}
       </ThemedView>
     </SafeAreaView>
