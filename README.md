@@ -35,4 +35,5 @@ To learn more about offline first architeture
 - [Offline-First Mobile App Architecture in React Native](https://medium.com/codetodeploy/offline-first-react-native-architecture-guide-765c5f196811).
 - [The Complete Guide to Offline-First Architecture in Android](https://proandroiddev.com/the-complete-guide-to-offline-first-architecture-in-android-490d5e9d27ea)
 - [Criar um app que prioriza o modo off-line](https://developer.android.com/topic/architecture/data-layer/offline-first?hl=pt-br)
+- [The Complete Guide to Offline-First Architecture in Android](https://proandroiddev.com/the-complete-guide-to-offline-first-architecture-in-android-490d5e9d27ea)
 
