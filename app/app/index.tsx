@@ -1,79 +1,18 @@
-import { useEffect, useState } from "react";
-import { Pressable, TextInput } from "react-native";
+﻿import { Pressable, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-import { getDatabase } from "@/lib/db";
 import styles from "@/styles/sqlite";
 
-type Todo = {
-  id: number;
-  title: string;
-  created_at: number;
-};
+import { useUsers } from "./hooks/useUsers";
+import { useMemo } from "react";
 
 export default function SQLiteScreen() {
-  const [title, setTitle] = useState("");
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  async function loadTodos() {
-    const db = await getDatabase();
-    const rows = await db.getAllAsync<Todo>(
-      "SELECT id, title, created_at FROM todos ORDER BY created_at DESC;",
-    );
-    setTodos(rows);
-  }
-
-  async function addTodo() {
-    const trimmed = title.trim();
-    if (!trimmed) return;
-    setLoading(true);
-    try {
-      const db = await getDatabase();
-      await db.runAsync(
-        "INSERT INTO todos (title, created_at) VALUES (?, ?);",
-        [trimmed, Date.now()],
-      );
-      setTitle("");
-      await loadTodos();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to insert todo.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function deleteTodo(id: number) {
-    setLoading(true);
-    try {
-      const db = await getDatabase();
-      await db.runAsync("DELETE FROM todos WHERE id = ?;", [id]);
-      await loadTodos();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete todo.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function refresh() {
-    setLoading(true);
-    try {
-      await loadTodos();
-      setError(null);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load todos.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    refresh();
-  }, []);
+  const { title, setTitle, todos, error, loading, addTodo, deleteTodo, refresh } =
+    useUsers();
+  const activeTodos = useMemo(() => {return todos.filter((todo) => (todo.deleted ?? 0) === 0)}, [todos]);
+  const deletedTodos = useMemo(() => { return todos.filter((todo) => (todo.deleted ?? 0) === 1)}, [todos]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -122,7 +61,8 @@ export default function SQLiteScreen() {
       )}
 
       <ThemedView style={styles.list}>
-        {todos.map((todo) => (
+        <ThemedText type="subtitle">Active</ThemedText>
+        {activeTodos.map((todo) => (
           <ThemedView key={todo.id} style={styles.itemRow}>
             <ThemedText>{todo.title}</ThemedText>
             <Pressable
@@ -136,6 +76,13 @@ export default function SQLiteScreen() {
             >
               <ThemedText type="defaultSemiBold">Delete</ThemedText>
             </Pressable>
+          </ThemedView>
+        ))}
+
+        <ThemedText type="subtitle">Deleted</ThemedText>
+        {deletedTodos.map((todo) => (
+          <ThemedView key={todo.id} style={styles.itemRow}>
+            <ThemedText>{todo.title}</ThemedText>
           </ThemedView>
         ))}
       </ThemedView>
