@@ -1,23 +1,18 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { getDatabase } from "@/lib/db";
-import { getOutboxDatabase } from "@/lib/outbox_db";
-
+import { OutboxRepository } from "../data/outbox-repository";
+import { UserRepository } from "../data/user-repository";
+import { UserDB } from "../interfaces/user";
+import { OutboxItem } from "../interfaces/outbox";
 import { getInfos } from "../services/users";
-
-type Todo = {
-  id: number;
-  title: string;
-  created_at: number;
-  dirty: 0 | 1;
-  updatedAt?: number;
-  deleted?: 0 | 1;
-  serverVersion?: number;
-};
+import { useSync } from "./useSync";
 
 export function useUsers() {
-  const [title, setTitle] = useState("");
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const outboxRepository = useRef(new OutboxRepository()).current;
+  const userRepository = useRef(new UserRepository()).current;
+  const { sync } = useSync();
+  const [todos, setTodos] = useState<UserDB[]>([]);
+  const [outboxItems, setOutboxItems] = useState<OutboxItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -33,57 +28,42 @@ export function useUsers() {
   }
 
   async function loadTodos() {
-    const db = await getDatabase();
-    const rows = await db.getAllAsync<Todo>(
-      "SELECT id, title, created_at, deleted FROM todos ORDER BY created_at DESC;",
-    );
+    const rows = await userRepository.loadAll();
     setTodos(rows);
   }
 
-  async function addTodo() {
-    const trimmed = title.trim();
-    if (!trimmed) return;
+  async function loadOutboxItems() {
+    const rows = await outboxRepository.loadAll();
+    setOutboxItems(rows);
+  }
+
+  async function addTodo(name: string): Promise<boolean> {
     setLoading(true);
     try {
-      const db = await getDatabase();
-      const insertResult = await db.runAsync(
-        "INSERT INTO todos (title, created_at) VALUES (?, ?);",
-        [trimmed, Date.now()],
-      );
-      const userId = Number(insertResult.lastInsertRowId);
-
-      const outboxDb = await getOutboxDatabase();
-      await outboxDb.runAsync(
-        "INSERT INTO outbox (entity, entityId, type, payload, createdAt, status) VALUES (?, ?, ?, ?, ?, ?);",
-        [
-          "user",
-          String(userId),
-          "UPSERT",
-          JSON.stringify({ id: userId, title: trimmed }),
-          Date.now(),
-          "PENDING",
-        ],
-      );
-      setTitle("");
-      await loadTodos();
+      await userRepository.add(name);
+      await Promise.all([loadTodos(), loadOutboxItems()]);
+      sync()
+        .then(() => loadOutboxItems())
+        .catch(() => {});
+      return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to insert todo.");
+      setError(e instanceof Error ? e.message : "Failed to insert.");
+      return false;
     } finally {
       setLoading(false);
     }
   }
 
-  async function deleteTodo(id: number) {
+  async function deleteTodo(id: string) {
     setLoading(true);
     try {
-      const db = await getDatabase();
-      await db.runAsync(
-        "UPDATE todos SET dirty = 1, deleted = 1, updatedAt = ?, serverVersion = 1 WHERE id = ?;",
-        [Date.now(), id],
-      );
-      await loadTodos();
+      await userRepository.markDeleted(id);
+      await Promise.all([loadTodos(), loadOutboxItems()]);
+      sync()
+        .then(() => loadOutboxItems())
+        .catch(() => {});
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to delete todo.");
+      setError(e instanceof Error ? e.message : "Failed to delete.");
     } finally {
       setLoading(false);
     }
@@ -92,10 +72,10 @@ export function useUsers() {
   async function refresh() {
     setLoading(true);
     try {
-      await loadTodos();
+      await Promise.all([loadTodos(), loadOutboxItems()]);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load todos.");
+      setError(e instanceof Error ? e.message : "Failed to load.");
     } finally {
       setLoading(false);
     }
@@ -107,9 +87,8 @@ export function useUsers() {
   }, []);
 
   return {
-    title,
-    setTitle,
     todos,
+    outboxItems,
     error,
     loading,
     addTodo,
