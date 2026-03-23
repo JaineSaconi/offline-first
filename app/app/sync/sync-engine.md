@@ -1,17 +1,17 @@
-# SyncEngine
+# sync-engine
 
 **Arquivo:** `app/app/sync/sync-engine.ts`
-**Tipo:** Classe — Motor de sincronização offline-first
+**Tipo:** Funções puras — Motor de sincronização offline-first
 
 ## Descrição
 
 Orquestra o processamento da fila de sincronização (`outbox`). Lê itens pendentes, executa as chamadas de API correspondentes e atualiza o estado local (tabelas `todos` e `outbox`) de forma atômica.
 
-Possui proteção contra execução concorrente via flag `isRunning`.
+Toda a lógica é composta por funções puras exportadas — sem classes ou instâncias. A proteção contra execução concorrente é feita via MMKV store (`syncStorage`), que persiste o flag `IS_RUNNING` de forma síncrona.
 
-## Métodos públicos
+## Função pública
 
-### `run(): Promise<void>`
+### `runSync(): Promise<void>`
 
 Ponto de entrada do ciclo de sincronização. Deve ser chamado quando:
 - O app volta ao foreground.
@@ -19,29 +19,28 @@ Ponto de entrada do ciclo de sincronização. Deve ser chamado quando:
 - O usuário aciona sync manualmente.
 
 ```ts
-const engine = new SyncEngine();
-await engine.run();
+await runSync();
 ```
 
-Retorna imediatamente sem fazer nada se já houver um ciclo em andamento (`isRunning = true`).
+Retorna imediatamente sem fazer nada se já houver um ciclo em andamento (verifica `syncStorage.getBoolean(SYNC_KEYS.IS_RUNNING)`). Ao finalizar, registra `LAST_SYNC_AT` no MMKV store.
 
 ## Fluxo interno
 
 ```
-run()
+runSync()
  └─ processQueue()
-      └─ outboxRepo.getPendingItems()   → até 20 itens PENDING com nextRetryAt <= now
+      └─ getPendingItems()   → até 20 itens PENDING com nextRetryAt <= now
            └─ for each item:
                 processItem(item)
                   ├─ markInFlight(item.id)
                   ├─ [chamada de API — comentada, aguarda implementação]
-                  └─ sucesso → markSuccess(item)
+                  └─ sucesso → handleSuccess(item)
                              └─ withTransactionAsync:
-                                  ├─ userRepo.markSynced(entityId, serverVersion)
-                                  └─ outboxRepo.markDone(id)
-                  └─ falha   → markFailure(item, error)
-                             ├─ transitório → outboxRepo.updateRetry(...)
-                             └─ permanente  → outboxRepo.markFailed(...)
+                                  ├─ markSynced(entityId, serverVersion)
+                                  └─ markDone(id)
+                  └─ falha   → handleFailure(item, error)
+                             ├─ transitório → updateRetry(...)
+                             └─ permanente  → markFailed(...)
 ```
 
 ## Estratégia de retry (backoff exponencial com jitter)
@@ -69,27 +68,28 @@ function computeBackoffMs(attempts: number): number {
 
 ## Classificação de erros
 
-| Tipo        | Exemplos                        | Ação              |
-|-------------|----------------------------------|-------------------|
-| Transitório | Timeout, 5xx, offline            | Retry com backoff |
-| Permanente  | 400, 401, 403, 404, payload inválido | `FAILED`     |
+| Tipo        | Exemplos                             | Ação              |
+|-------------|--------------------------------------|-------------------|
+| Transitório | Timeout, 5xx, offline                | Retry com backoff |
+| Permanente  | 400, 401, 403, 404, payload inválido | `FAILED`          |
 
 > **TODO:** A função `isTransientError` atualmente retorna `true` para todos os erros. Implementar classificação real baseada no HTTP status code quando a API for integrada.
 
-## Atomicidade do `markSuccess`
+## Atomicidade do `handleSuccess`
 
 O sucesso é gravado dentro de `withTransactionAsync`, garantindo que `todos.dirty = 0` e `outbox.status = 'DONE'` sejam escritos juntos. Se qualquer escrita falhar, ambas são revertidas e o item volta ao estado `IN_FLIGHT`, sendo reprocessado no próximo ciclo.
 
 ## Entidades suportadas
 
-| `entity` | `type`    | Ação futura                  |
-|----------|-----------|------------------------------|
-| `user`   | `UPSERT`  | `api.upsertUser(payload)`    |
-| `user`   | `DELETE`  | `api.deleteUser(entityId)`   |
+| `entity` | `type`   | Ação futura                |
+|----------|----------|----------------------------|
+| `user`   | `UPSERT` | `api.upsertUser(payload)`  |
+| `user`   | `DELETE` | `api.deleteUser(entityId)` |
 
 ## Dependências
 
 - `@/db/db` — `getDatabase()` para transações atômicas
-- `../data/outbox-repository` — `OutboxRepository`
-- `../data/user-repository` — `UserRepository`
+- `../data/outbox-repository` — funções de acesso ao outbox
+- `../data/user-repository` — `markSynced`
 - `../interfaces/outbox` — `OutboxItem`
+- `../store/sync-store` — `syncStorage`, `SYNC_KEYS`

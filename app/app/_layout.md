@@ -6,30 +6,41 @@
 ## Descrição
 
 Layout raiz da aplicação. Responsável por:
-1. Configurar o tema visual (claro/escuro) via `ThemeProvider`.
-2. Definir a estrutura de navegação com `Stack`.
-3. Executar a migração do banco de dados SQLite na inicialização.
+1. Executar a migração do banco de dados SQLite na inicialização.
+2. Montar o `UsersProvider`, disponibilizando o contexto de dados para todas as telas.
+3. Configurar o tema visual (claro/escuro) via `ThemeProvider`.
+4. Definir a estrutura de navegação com `Stack`.
 
 ## Inicialização do banco
 
 ```ts
 useEffect(() => {
-  migrateDatabase().catch((error) => {
-    console.error("Failed to migrate database", error);
-  });
+  migrateDatabase()
+    .then(() => setDbReady(true))
+    .catch((error) => {
+      console.error("Failed to migrate database", error);
+    });
 }, []);
 ```
 
-A migração cria as tabelas `todos` e `outbox` com seus índices, caso ainda não existam. Utiliza `CREATE TABLE IF NOT EXISTS` e `CREATE INDEX IF NOT EXISTS`, tornando as operações idempotentes.
+A migração cria as tabelas `todos` e `outbox` com seus índices, caso ainda não existam. O app aguarda `dbReady = true` antes de renderizar qualquer tela — enquanto o banco não estiver pronto, o componente retorna `null`.
 
-> **Atenção:** A migração é assíncrona e iniciada após o primeiro render. Existe uma janela onde o banco ainda não está pronto enquanto as telas filhas montam. Para produção, considere adicionar um estado de loading que bloqueie a renderização até `migrateDatabase()` resolver.
+## UsersProvider
+
+O `UsersProvider` é montado após o banco estar pronto, garantindo que o contexto de dados possa acessar o SQLite com segurança.
+
+```tsx
+<UsersProvider>
+  <Stack>...</Stack>
+</UsersProvider>
+```
 
 ## Rotas configuradas
 
-| Nome      | Arquivo              | Configuração                          |
-|-----------|----------------------|---------------------------------------|
-| `index`   | `app/index.tsx`      | `headerShown: false`                  |
-| `modal`   | `app/modal.tsx`      | `presentation: "modal"`, title: Modal |
+| Nome    | Arquivo         | Configuração                          |
+|---------|-----------------|---------------------------------------|
+| `index` | `app/index.tsx` | `headerShown: false`                  |
+| `modal` | `app/modal.tsx` | `presentation: "modal"`, title: Modal |
 
 ## Tema
 
@@ -46,3 +57,4 @@ Detecta o esquema de cores do sistema via `useColorScheme` e aplica o tema corre
 - `expo-status-bar` — `StatusBar`
 - `@/hooks/use-color-scheme` — detecção de tema
 - `@/db/db` — `migrateDatabase`
+- `./context/UsersContext` — `UsersProvider`

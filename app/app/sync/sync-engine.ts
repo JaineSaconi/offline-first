@@ -1,7 +1,14 @@
 import { getDatabase } from "@/db/db";
 import { OutboxItem } from "../interfaces/outbox";
-import { OutboxRepository } from "../data/outbox-repository";
-import { UserRepository } from "../data/user-repository";
+import {
+  getPendingItems,
+  markInFlight,
+  markDone,
+  updateRetry,
+  markFailed,
+} from "../data/outbox-repository";
+import { markSynced } from "../data/user-repository";
+import { syncStorage, SYNC_KEYS } from "../store/sync-store";
 
 function extractErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -20,71 +27,66 @@ function computeBackoffMs(attempts: number): number {
   return Math.floor(exp + jitter);
 }
 
-export class SyncEngine {
-  private isRunning = false;
-  private outboxRepo = new OutboxRepository();
-  private userRepo = new UserRepository();
-
-  async run(): Promise<void> {
-    if (this.isRunning) return;
-    this.isRunning = true;
-
-    try {
-      await this.processQueue();
-    } finally {
-      this.isRunning = false;
+async function handleSuccess(item: OutboxItem): Promise<void> {
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    if (item.entity === "user") {
+      await markSynced(item.entityId, null);
     }
+    await markDone(item.id);
+  });
+}
+
+async function handleFailure(item: OutboxItem, error: unknown): Promise<void> {
+  const attempts = (item.attempts ?? 0) + 1;
+
+  if (isTransientError(error)) {
+    const nextRetryAt = Date.now() + computeBackoffMs(attempts);
+    await updateRetry(
+      item.id,
+      attempts,
+      nextRetryAt,
+      extractErrorMessage(error),
+    );
+    return;
   }
 
-  private async processQueue(): Promise<void> {
-    const items = await this.outboxRepo.getPendingItems();
-    for (const item of items) {
-      await this.processItem(item);
-    }
-  }
+  await markFailed(item.id, extractErrorMessage(error));
+}
 
-  private async processItem(item: OutboxItem): Promise<void> {
-    try {
-      await this.outboxRepo.markInFlight(item.id);
+async function processItem(item: OutboxItem): Promise<void> {
+  try {
+    await markInFlight(item.id);
 
-      if (item.entity === "user") {
-        if (item.type === "UPSERT") {
-          // await api.upsertUser(JSON.parse(item.payload))
-        } else if (item.type === "DELETE") {
-          // await api.deleteUser(item.entityId)
-        }
+    if (item.entity === "user") {
+      if (item.type === "UPSERT") {
+        // await api.upsertUser(JSON.parse(item.payload))
+      } else if (item.type === "DELETE") {
+        // await api.deleteUser(item.entityId)
       }
-
-      await this.markSuccess(item);
-    } catch (error) {
-      await this.markFailure(item, error);
-    }
-  }
-
-  private async markSuccess(item: OutboxItem): Promise<void> {
-    const db = await getDatabase();
-    await db.withTransactionAsync(async () => {
-      if (item.entity === "user") {
-        await this.userRepo.markSynced(item.entityId, null);
-      }
-      await this.outboxRepo.markDone(item.id);
-    });
-  }
-
-  private async markFailure(item: OutboxItem, error: unknown): Promise<void> {
-    const attempts = (item.attempts ?? 0) + 1;
-
-    if (isTransientError(error)) {
-      const nextRetryAt = Date.now() + computeBackoffMs(attempts);
-      await this.outboxRepo.updateRetry(
-        item.id,
-        attempts,
-        nextRetryAt,
-        extractErrorMessage(error),
-      );
-      return;
     }
 
-    await this.outboxRepo.markFailed(item.id, extractErrorMessage(error));
+    await handleSuccess(item);
+  } catch (error) {
+    await handleFailure(item, error);
+  }
+}
+
+async function processQueue(): Promise<void> {
+  const items = await getPendingItems();
+  for (const item of items) {
+    await processItem(item);
+  }
+}
+
+export async function runSync(): Promise<void> {
+  if (syncStorage.getBoolean(SYNC_KEYS.IS_RUNNING)) return;
+  syncStorage.set(SYNC_KEYS.IS_RUNNING, true);
+
+  try {
+    await processQueue();
+  } finally {
+    syncStorage.set(SYNC_KEYS.IS_RUNNING, false);
+    syncStorage.set(SYNC_KEYS.LAST_SYNC_AT, Date.now());
   }
 }

@@ -13,11 +13,9 @@ export async function migrateTodos(db: SQLiteDatabase) {
     );
   `);
 
-  // Renomeia coluna legada "title" para "name" em bancos já existentes
   try {
     await db.execAsync(`ALTER TABLE todos RENAME COLUMN title TO name;`);
   } catch {
-    // Coluna já foi renomeada ou não existe — ignora
   }
 
   await db.execAsync(`CREATE INDEX IF NOT EXISTS idx_todos_deleted ON todos(deleted);`);

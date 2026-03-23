@@ -5,19 +5,21 @@
 
 ## Descrição
 
-Hook que expõe a funcionalidade de sincronização da fila `outbox` para os componentes React. Encapsula uma instância singleton do `SyncEngine` (via `useRef`) e disponibiliza a função `sync` para disparo manual ou automático.
+Hook que expõe a funcionalidade de sincronização da fila `outbox` para os componentes React. Chama `runSync()` do sync engine e expõe reativamente o estado `isRunning` via MMKV store.
 
 ## Retorno
 
 ```ts
 {
   sync: () => Promise<void>;
+  isRunning: boolean;
 }
 ```
 
-| Propriedade | Tipo                    | Descrição                                              |
-|-------------|-------------------------|--------------------------------------------------------|
-| `sync`      | `() => Promise<void>`   | Dispara um ciclo completo de sincronização do outbox   |
+| Propriedade | Tipo                  | Descrição                                                        |
+|-------------|-----------------------|------------------------------------------------------------------|
+| `sync`      | `() => Promise<void>` | Dispara um ciclo completo de sincronização do outbox             |
+| `isRunning` | `boolean`             | `true` enquanto o sync está em execução (reativo via MMKV)       |
 
 ## Uso
 
@@ -25,19 +27,19 @@ Hook que expõe a funcionalidade de sincronização da fila `outbox` para os com
 import { useSync } from "../hooks/useSync";
 
 function MyComponent() {
-  const { sync } = useSync();
+  const { sync, isRunning } = useSync();
 
   return (
-    <Button onPress={sync} title="Sincronizar" />
+    <Button onPress={sync} disabled={isRunning} title="Sincronizar" />
   );
 }
 ```
 
 ## Comportamento
 
-- O `SyncEngine` é instanciado uma única vez via `useRef` e reaproveitado entre renders.
-- `sync` é estabilizada via `useCallback` para não causar re-renders desnecessários em componentes filhos.
-- Se `sync` for chamado enquanto um ciclo já estiver em andamento, o `SyncEngine` retorna imediatamente sem processamento duplicado (`isRunning` guard).
+- `isRunning` é lido do MMKV store via `useMMKVBoolean`, tornando-o reativo: qualquer componente que consuma este hook re-renderiza automaticamente quando o sync inicia ou termina.
+- Se `sync` for chamado enquanto um ciclo já estiver em andamento, `runSync()` retorna imediatamente sem processamento duplicado (guard via `syncStorage.getBoolean(IS_RUNNING)`).
+- `sync` é estabilizada via `useCallback` para não causar re-renders desnecessários.
 
 ## Integração recomendada
 
@@ -56,4 +58,6 @@ useEffect(() => {
 
 ## Dependências
 
-- `../sync/sync-engine` — `SyncEngine`
+- `../sync/sync-engine` — `runSync`
+- `../store/sync-store` — `syncStorage`, `SYNC_KEYS`
+- `react-native-mmkv` — `useMMKVBoolean`

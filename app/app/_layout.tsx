@@ -6,6 +6,7 @@ import "react-native-reanimated";
 
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { migrateDatabase } from "@/db/db";
+import { UsersProvider } from "./context/UsersContext";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -23,11 +24,13 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
-      </Stack>
-      <StatusBar style="auto" />
+      <UsersProvider>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
+        </Stack>
+        <StatusBar style="auto" />
+      </UsersProvider>
     </ThemeProvider>
   );
 }

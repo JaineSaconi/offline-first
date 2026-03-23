@@ -1,12 +1,14 @@
-import { useCallback, useRef } from "react";
-import { SyncEngine } from "../sync/sync-engine";
+import { useCallback } from "react";
+import { useMMKVBoolean } from "react-native-mmkv";
+import { runSync } from "../sync/sync-engine";
+import { syncStorage, SYNC_KEYS } from "../store/sync-store";
 
 export function useSync() {
-  const engine = useRef(new SyncEngine()).current;
+  const [isRunning] = useMMKVBoolean(SYNC_KEYS.IS_RUNNING, syncStorage);
 
   const sync = useCallback(async () => {
-    await engine.run();
-  }, [engine]);
+    await runSync();
+  }, []);
 
-  return { sync };
+  return { sync, isRunning: isRunning ?? false };
 }
