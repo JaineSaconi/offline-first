@@ -1,15 +1,27 @@
-﻿{
+{
   "name": "back",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "NODE_ENV=production node src/index.js",
+    "dev": "NODE_ENV=development nodemon src/index.js",
+    "dev:win": "set NODE_ENV=development&& nodemon src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "express": "^5.2.1"
+    "better-sqlite3": "^9.x",
+    "dotenv": "^16.x",
+    "express": "^4.x",
+    "express-rate-limit": "^7.x",
+    "helmet": "^7.x",
+    "pino": "^9.x",
+    "pino-pretty": "^11.x",
+    "zod": "^3.x"
+  },
+  "devDependencies": {
+    "nodemon": "^3.x"
   }
 }
